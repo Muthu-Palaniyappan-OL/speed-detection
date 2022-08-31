@@ -1,6 +1,8 @@
 """
 Implementation Of kalman Filter
 
+Based on constant velocity model.
+
 Using:
     * numpy
 
