@@ -15,8 +15,14 @@ def draw_box_border(frame, box, color):
     cv2.line(frame, box[:2], box[6:8], color, 2)
     cv2.line(frame, box[4:6], box[2:4], color, 2)
 
+def within_box(x1 :int, y1 :int, box) -> bool:
+    if (x1 >= box[0] and x1 <= box[4] and y1 >= box[1] and y1 <= box[5] ):
+        return True
+    else:
+        return False
+
 if __name__ == "__main__":
-    box1 = (488, 298, 612, 297, 512, 620, 14, 540)
+    box1 = (665, 303, 793, 293, 1275, 513, 746, 564)
     bounding_box = []
     print("Click in Frame to get it as list: ")
 
@@ -34,7 +40,7 @@ if __name__ == "__main__":
         if ret is False:
             break
         
-        draw_box_border(frame, box1)
+        draw_box_border(frame, box1, (0, 255, 0))
         cv2.imshow('Frame', frame)
         key = cv2.waitKey(30)
         if key == ord('q'):
