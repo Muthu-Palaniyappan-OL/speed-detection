@@ -30,7 +30,6 @@ def vehicle_id_search(x :int, y :int) -> int:
 
     for i in vehicle_centers:
         distance = 0
-        print(vehicle_centers[i][1],vehicle_centers[i][2])
         distance = calc_distance(vehicle_centers[i][1],vehicle_centers[i][2], x, y)
         
         if (distance < min_distance and distance < CIRCLE_DISTANCE):
