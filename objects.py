@@ -6,10 +6,14 @@ from math import sqrt, pow
 from utility import within_box
 
 ######################
-CIRCLE_DISTANCE = 30
+CIRCLE_DISTANCE = 50
 ID_STARTING = 0
+INITIAL_ERROR_DECREASE = 0.9
 ######################
 
+"""
+[[kf x y no_of_not_availablity]]
+"""
 vehicle_list = []
 vehicle_centers = dict()
 
@@ -44,7 +48,7 @@ def get_object_id_and_speed(x :int, y :int, error :float) -> Tuple[int, float]:
     if id < 0:
         global ID_STARTING
         ID_STARTING += 1
-        KF = KalmanFilter()
+        KF = KalmanFilter(old_input_x=x*INITIAL_ERROR_DECREASE, old_input_y=y*INITIAL_ERROR_DECREASE)
         vehicle_centers[ID_STARTING] = [KF, x, y, 0]
         id = ID_STARTING
         vehicle_centers[id][0].update(x, y, error)

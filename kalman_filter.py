@@ -24,15 +24,15 @@ MIN_UPDATE_TIMES = 5
 #####################
 
 class KalmanFilter:
-    def __init__(self, dt = 1, initial_error = 1000, old_input = 0):
+    def __init__(self, dt = 1, initial_error = 1000, old_input_x = 0, old_input_y = 0):
         """
         dt is delta time between the readings (supposed to be at regular intervals).
         initial_error is within what range measurement value (if your expecting measurment value within 1000 put 1000, anything more than that also no problem).
         old_input if measurement doesnt start in 0 position change old_input value. even if you don't change it doesn't matter much.
         """
         self.update_count = 0
-        self.kf_x = KalmanFilter_1D(dt, initial_error, old_input)
-        self.kf_y = KalmanFilter_1D(dt, initial_error, old_input)
+        self.kf_x = KalmanFilter_1D(dt, initial_error, old_input_x)
+        self.kf_y = KalmanFilter_1D(dt, initial_error, old_input_y)
     
     def predict(self) -> Tuple[int, float, int, float]:
         """
@@ -58,10 +58,6 @@ class KalmanFilter:
     def worthy_enough(self) -> bool:
         return self.update_count >= MIN_UPDATE_TIMES
     
-    def forward(self):
-        if self.worthy_enough() is True:
-            pre = self.kf_x.predict()
-            self.kf_x.update(pre[0], pre[2])
 
 class KalmanFilter_1D:
     def __init__(self, dt = 1, initial_error = 1000, old_input = 0):
@@ -119,14 +115,9 @@ class KalmanFilter_1D:
 
 if __name__ == "__main__":
     KF = KalmanFilter()
-    print(KF.predict())
     KF.update(10, 20, 0.1)
-    print(KF.predict())
     KF.update(15, 25, 0.1)
-    print(KF.predict())
     KF.update(20, 30, 0.1)
-    print(KF.predict())
     KF.update(25, 35, 0.1)
-    print(KF.predict())
     KF.update(30, 40, 0.1)
     print(KF.predict())
