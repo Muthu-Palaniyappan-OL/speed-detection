@@ -4,120 +4,183 @@ Implementation Of kalman Filter
 Based on constant velocity model.
 
 Using:
-    * numpy
+	* numpy
 
 Usage: 
-    =========================== 1D Kalman Filter =============================
-        Kf = KalmanFilter_1D()
-        Kf.update(10, 0.1) # 0.1 percentage error and measurment value 10  
-        Kf.update(15, 0.1)
-        Kf.update(20, 0.1)
-        print(Kf.predict())                                                
-    ==========================================================================
+	=========================== 1D Kalman Filter =============================
+		Kf = KalmanFilter_1D()
+		Kf.update(10, 0.1) # 0.1 percentage error and measurment value 10  
+		Kf.update(15, 0.1)
+		Kf.update(20, 0.1)
+		print(Kf.predict())												
+	==========================================================================
 
 """
+# Dependancies
 import numpy as np
 from typing import Tuple
-
-#####################
-MIN_UPDATE_TIMES = 5
-#####################
+from math import sqrt, pow
 
 class KalmanFilter:
-    def __init__(self, dt = 1, initial_error = 1000, old_input_x = 0, old_input_y = 0):
-        """
-        dt is delta time between the readings (supposed to be at regular intervals).
-        initial_error is within what range measurement value (if your expecting measurment value within 1000 put 1000, anything more than that also no problem).
-        old_input if measurement doesnt start in 0 position change old_input value. even if you don't change it doesn't matter much.
-        """
-        self.update_count = 0
-        self.kf_x = KalmanFilter_1D(dt, initial_error, old_input_x)
-        self.kf_y = KalmanFilter_1D(dt, initial_error, old_input_y)
-    
-    def predict(self) -> Tuple[int, float, int, float]:
-        """
-        Predicts Future State With Recorded Readings But it doesnt update itself
-        """
-        return self.kf_x.predict(), self.kf_y.predict()
-        
-    def update(self, input_x :int, input_y :int, error :float):
-        """
-        Updates kalman filter with new data and it doesn't predicts
-        """
-        self.kf_x.update(input_x, error)
-        self.kf_y.update(input_y, error)
-        self.update_count += 1
-    
-    def future(self, times :int) -> Tuple[int, float, int, float]:
-        """
-        Predicts data in future after some "times".
-        KalmanFilter.predict() is equivalent to KalmanFilter.future(1)
-        """
-        return self.kf_x.update(times), self.kf_y.update(times)
-    
-    def worthy_enough(self) -> bool:
-        return self.update_count >= MIN_UPDATE_TIMES
-    
+	"""Predict Future (X_Cord, Y_Cord) based on input."""
 
-class KalmanFilter_1D:
-    def __init__(self, dt = 1, initial_error = 1000, old_input = 0):
-        """
-        dt is delta time between the readings (supposed to be at regular intervals).
-        initial_error is within what range measurement value (if your expecting measurment value within 1000 put 1000, anything more than that also no problem).
-        old_input if measurement doesnt start in 0 position change old_input value. even if you don't change it doesn't matter much.
-        """
-        self.dt = dt
-        self.old_input = old_input
-        self.update_count = 0
-        self.X = np.array([[0],[0]])
-        self.A = np.array([
-            [1, self.dt],
-            [0, 1]
-        ])
-        self.P = np.eye(2)*initial_error
-    
-    def predict(self) -> Tuple[int, float]:
-        """
-        Predicts Future State With Recorded Readings But it doesnt update itself
-        """
-        return self.A.dot(self.X)
-    
-    def worthy_enough(self) -> bool:
-        return self.update_count >= MIN_UPDATE_TIMES
-        
-    def update(self, input :int, error :float):
-        """
-        Updates kalman filter with new data and it doesn't predicts
-        """
-        self.X = self.A.dot(self.X)
-        self.P = self.A.dot(self.P.dot(self.A))
-        R = np.eye(2)*error
-        K = np.divide(self.P, (self.P+R), where=(self.P+R)!=0)
-        Y = np.array([[input], [(input - self.old_input)/self.dt]])
-        self.old_input = input
-        X = self.X + K.dot(Y - self.X)
-        self.X = X
-        self.P = (np.eye(2) - K).dot(self.P)
-        self.update_count += 1
-    
-    def future(self, times :int) -> Tuple[int, float]:
-        """
-        Predicts data in future after some "times".
-        KalmanFilter_1D.predict() is equivalent to KalmanFilter_1D.future(1)
-        """
-        
-        s = self.X
-        while(times):
-            s = self.A.dot(s)
-            times -= 1
-        
-        return s
+	def __init__(self, dt = 1, initial_error = 1000, old_input_x = 0, old_input_y = 0):
+		"""
+		dt: is delta time between the periodic readings.
+		initial_error: Inital error 
+		old_input_x, old_input_y: inital input for x, y
 
+		# Understanding Initial Mat Matrix
+		------------------------------------------------------------------------
+		[0, 0],					=> X state matrix 				=> Mat[0, :]
+		[1, dt],				=> A state transition matrix	=> Mat[1:3, :]
+		[0, 1],
+		[initial_error, 0],		=> covariance matrix for X		=> Mat[3:5, :]
+		[0, initial_error],
+		[0, 0],					=> Y state matrix				=> Mat[5, :]
+		[initial_error, 0],		=> covariance matrix for Y		=> Mat[6:, :]
+		[0, initial_error]
+		------------------------------------------------------------------------
+		"""
+		self.dt = dt
+		self.old_input_x = old_input_x
+		self.old_input_y = old_input_y
+		self.Mat = np.array([
+			[0, 0],
+			[1, dt],
+			[0, 1],
+			[initial_error, 0],
+			[0, initial_error],
+			[0, 0],
+			[initial_error, 0],
+			[0, initial_error]
+		], dtype=np.float16)
+		
+	def predict_distance(self) -> Tuple[int, int]:
+		"""Predicts Future State With Recorded Readings But it doesnt update itself.
+		Returns: [X_Distance, Y_Distance]
+		"""
+		X = int(self.Mat[1:3, :].dot(self.Mat[0, :])[0])
+		Y = int(self.Mat[1:3, :].dot(self.Mat[5, :])[0])
+		return (X, Y)
+	
+	def predict_velocity(self) -> np.float16:
+		"""Merge's Both X_Velocity and Y_Velocity together.
+
+		Returns: [Velocity]
+		"""
+		vx, vy = self.predict_2d_velocity()
+		return sqrt(pow(vx, 2) + pow(vy, 2))
+
+	def predict_2d_velocity(self) -> Tuple[np.float16, np.float16]:
+		"""Predicts Future State With Recorded Readings But it doesnt update itself.
+		
+		Returns: [X_Velocity, Y_Velocity]
+		"""
+		X = self.Mat[1:3, :].dot(self.Mat[0, :])[1]
+		Y = self.Mat[1:3, :].dot(self.Mat[5, :])[1]
+		return (X, Y)
+			
+	def update(self, input_x :int, input_y :int, error :float) -> None:
+		"""Updates kalman filter with new data and it doesn't predicts."""
+
+		self.Mat[0, :] = self.Mat[1:3, :].dot(self.Mat[0, :])
+		self.Mat[5, :] = self.Mat[1:3, :].dot(self.Mat[5, :])
+		self.Mat[3:5, :] = self.Mat[1:3, :].dot(self.Mat[3:5, :].dot(self.Mat[1:3, :]))
+		self.Mat[6:, :] = self.Mat[1:3, :].dot(self.Mat[6:, :].dot(self.Mat[1:3, :]))
+		R = np.eye(2)*error
+		Kx = np.divide(self.Mat[3:5, :], (self.Mat[3:5, :]+R), where=(self.Mat[3:5, :]+R)!=0)
+		Ky = np.divide(self.Mat[6:, :], (self.Mat[6:, :]+R), where=(self.Mat[6:, :]+R)!=0)
+		Yx = np.array([[input_x], [(input_x - self.old_input_x)/self.dt]])
+		Yy = np.array([[input_y], [(input_y - self.old_input_y)/self.dt]])
+		self.old_input_x = input_x
+		self.old_input_y = input_y
+		self.Mat[0, :] = self.Mat[0, :] + Kx.dot(Yx - self.Mat[0, :].reshape(2, 1)).reshape(1, 2)
+		self.Mat[5, :] = self.Mat[5, :] + Ky.dot(Yy - self.Mat[5, :].reshape(2, 1)).reshape(1, 2)
+		self.Mat[3:5, :] = (np.eye(2) - Kx).dot(self.Mat[3:5, :])
+		self.Mat[6:, :] = (np.eye(2) - Ky).dot(self.Mat[6:, :])
+	
+	def forward_position(self, level :int) -> np.ndarray:
+		ret = np.zeros(shape=(level, 2))
+		sx = self.Mat[0, :].copy()
+		sy = self.Mat[5, :].copy()
+		for i in ret:
+			sx = self.Mat[1:3, :].dot(sx)
+			sy = self.Mat[1:3, :].dot(sy)
+			i[0] = sx[0]
+			i[1] = sy[0]
+		return ret
+
+	
 if __name__ == "__main__":
-    KF = KalmanFilter()
-    KF.update(10, 20, 0.1)
-    KF.update(15, 25, 0.1)
-    KF.update(20, 30, 0.1)
-    KF.update(25, 35, 0.1)
-    KF.update(30, 40, 0.1)
-    print(KF.predict())
+	print('# Simple Prediction Testing ')
+	BOX2 = np.array([675, 415, 963, 397, 1111, 465, 698, 512])
+	KF = KalmanFilter(old_input_x=555, old_input_y=382)
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(691, 316, 0.1)
+	clean_object()
+	get_id_speed(694, 319, 0.1)
+	clean_object()
+	get_id_speed(701, 334, 0.1)
+	clean_object()
+	get_id_speed(706, 341, 0.1)
+	clean_object()
+	get_id_speed(708, 344, 0.1)
+	clean_object()
+	get_id_speed(708, 345, 0.1)
+	clean_object()
+	get_id_speed(709, 348, 0.1)
+	clean_object()
+	get_id_speed(710, 350, 0.1)
+	clean_object()
+	get_id_speed(712, 353, 0.1)
+	clean_object()
+	get_id_speed(713, 354, 0.1)
+	clean_object()
+	get_id_speed(716, 357, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(691, 316, 0.1)
+	clean_object()
+	get_id_speed(694, 319, 0.1)
+	clean_object()
+	get_id_speed(701, 334, 0.1)
+	clean_object()
+	get_id_speed(706, 341, 0.1)
+	clean_object()
+	get_id_speed(708, 344, 0.1)
+	clean_object()
+	get_id_speed(708, 345, 0.1)
+	clean_object()
+	get_id_speed(709, 348, 0.1)
+	clean_object()
+	get_id_speed(710, 350, 0.1)
+	clean_object()
+	get_id_speed(712, 353, 0.1)
+	clean_object()
+	get_id_speed(713, 354, 0.1)
+	clean_object()
+	get_id_speed(716, 357, 0.1)
+	clean_object()
+	frame_difference_change(1, vehicle_centre, BOX2)
+
+"""
+[[705.  360. ]
+ [713.  360.5]
+ [721.  361. ]
+ [729.  361.5]
+ [737.  362. ]
+ [745.  362.5]
+ [753.  363. ]
+ [761.  363.5]
+ [769.  364. ]
+ [777.  364.5]]
+"""

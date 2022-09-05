@@ -1,84 +1,123 @@
+import enum
 from sys import maxsize
 from typing import Tuple
 from kalman_filter import KalmanFilter
-from math import sqrt, pow
+import numpy as np
 
-from utility import within_box
+from utility import manhattan_distance, relative_line_position
 
-######################
-CIRCLE_DISTANCE = 50
-ID_STARTING = 0
-INITIAL_ERROR_DECREASE = 0.9
-######################
+class OBJ(KalmanFilter):
+	INITIAL_OBJECT_ID = 1
+	def __init__(self, dt=1, initial_error=1000, old_input_x=0, old_input_y=0):
+		super().__init__(dt, initial_error, old_input_x, old_input_y)
+		self.id = OBJ.INITIAL_OBJECT_ID
+		self.time_passed_after = 0
+		self.assigned = False
+		OBJ.INITIAL_OBJECT_ID += 1
+		
+vehicle_centre : dict[int, OBJ] = dict()
+DISTANCE_RADIOUS = 100
+Max_TLOST_FRAMES = 19
 
-"""
-[[kf x y no_of_not_availablity]]
-"""
-vehicle_list = []
-vehicle_centers = dict()
+def get_id_speed(x, y, error):
+	min = maxsize
+	id = -1
+	for i in vehicle_centre:
+		dist = manhattan_distance(x, y, *vehicle_centre[i].predict_distance())
+		if dist < min and dist < DISTANCE_RADIOUS and vehicle_centre[i].assigned == False:
+			id = i
+			min = dist
+		
+	if id == -1:
+		K = OBJ(old_input_x=x, old_input_y=y)
+		K.update(x, y, error)
+		vehicle_centre[K.id] = K
+		K.assigned = True
+		K.time_passed_after = 0
+		return K.id, K.predict_velocity()
+	else:
+		vehicle_centre[id].assigned = True
+		vehicle_centre[id].time_passed_after = 0
+		vehicle_centre[id].update(x, y, error)
+		return vehicle_centre[id].id, vehicle_centre[i].predict_velocity()
+	
+def clean_object():
+	delete_ids = []
+	for i in vehicle_centre:
+		if vehicle_centre[i].assigned == False:
+			vehicle_centre[i].update(*vehicle_centre[i].predict_distance(), 0.5)
+			vehicle_centre[i].time_passed_after += 1
+		if vehicle_centre[i].time_passed_after > Max_TLOST_FRAMES:
+			delete_ids.append(i)
+		vehicle_centre[i].assigned = False
+	
+	for i in delete_ids:
+		del vehicle_centre[i]
 
-def calc_distance(x1 :int, y1 :int, x2 :int, y2 :int) -> float:
-    return sqrt(pow(x1-x2, 2) + pow(y1-y2, 2))
-
-def calc_speed(a :float, b :float):
-    return sqrt(pow(a, 2) + pow(b, 2))
-
-def vehicle_id_search(x :int, y :int) -> int:
-    """
-    Returns -1 if not found.
-    Returns ID if it exists.
-    """
-
-    id = -1
-    min_distance = maxsize
-
-    for i in vehicle_centers:
-        distance = 0
-        distance = calc_distance(vehicle_centers[i][1],vehicle_centers[i][2], x, y)
-        
-        if (distance < min_distance and distance < CIRCLE_DISTANCE):
-            min_distance = distance
-            id = i
-    
-    return id
-
-def get_object_id_and_speed(x :int, y :int, error :float) -> Tuple[int, float]:
-    id = vehicle_id_search(x, y)
-    ret = (0, 0)
-    if id < 0:
-        global ID_STARTING
-        ID_STARTING += 1
-        KF = KalmanFilter(old_input_x=x*INITIAL_ERROR_DECREASE, old_input_y=y*INITIAL_ERROR_DECREASE)
-        vehicle_centers[ID_STARTING] = [KF, x, y, 0]
-        id = ID_STARTING
-        vehicle_centers[id][0].update(x, y, error)
-        vehicle_list.append(id)
-        ret = (id, 0)
-    else:
-            vehicle_centers[id][1] = x
-            vehicle_centers[id][2] = y
-            vehicle_centers[id][0].update(x, y, error)
-            vx, vy = vehicle_centers[id][0].predict()
-            ret = (id, calc_speed(vx[0], vy[0]))
-
-    return ret
-
-def check_each_vehicle(box):
-    for i in vehicle_list:
-        if vehicle_centers[i][0].worthy_enough() is True:
-            pre = vehicle_centers[i][0].predict()
-            x, y = (pre[0][1], pre[1][1])
-            print(i, x, y)
-            if (within_box(x, y, box) is False):
-                vehicle_list.remove(i)
-                print(i, vehicle_centers)
-                del vehicle_centers[i]
-
-    
+def frame_difference_change(id :int, vehicle_centre :dict[int, OBJ], box, len = 10):
+	fpos = vehicle_centre[id].forward_position(len)
+	res = 0
+	for i, p in enumerate(fpos):
+		t = relative_line_position(*p, box[:4])*relative_line_position(*p, box[4:])
+		if (t/abs(t) == -1.0):
+			res += 1
+	
+	return res
 
 if __name__ == "__main__":
-    print(get_object_id_and_speed(894, 466, 0.1))
-    print(get_object_id_and_speed(894, 466, 0.1))
-    print(get_object_id_and_speed(894, 466, 0.1))
-    print(get_object_id_and_speed(902, 476, 0.1))
-    print(get_object_id_and_speed(913, 484, 0.1))
+	BOX2 = np.array([675, 415, 963, 397, 1111, 465, 698, 512])
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(691, 316, 0.1)
+	clean_object()
+	get_id_speed(694, 319, 0.1)
+	clean_object()
+	get_id_speed(701, 334, 0.1)
+	clean_object()
+	get_id_speed(706, 341, 0.1)
+	clean_object()
+	get_id_speed(708, 344, 0.1)
+	clean_object()
+	get_id_speed(708, 345, 0.1)
+	clean_object()
+	get_id_speed(709, 348, 0.1)
+	clean_object()
+	get_id_speed(710, 350, 0.1)
+	clean_object()
+	get_id_speed(712, 353, 0.1)
+	clean_object()
+	get_id_speed(713, 354, 0.1)
+	clean_object()
+	get_id_speed(716, 357, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(692, 315, 0.1)
+	clean_object()
+	get_id_speed(691, 316, 0.1)
+	clean_object()
+	get_id_speed(694, 319, 0.1)
+	clean_object()
+	get_id_speed(701, 334, 0.1)
+	clean_object()
+	get_id_speed(706, 341, 0.1)
+	clean_object()
+	get_id_speed(708, 344, 0.1)
+	clean_object()
+	get_id_speed(708, 345, 0.1)
+	clean_object()
+	get_id_speed(709, 348, 0.1)
+	clean_object()
+	get_id_speed(710, 350, 0.1)
+	clean_object()
+	get_id_speed(712, 353, 0.1)
+	clean_object()
+	get_id_speed(713, 354, 0.1)
+	clean_object()
+	get_id_speed(716, 357, 0.1)
+	clean_object()
+	print(frame_difference_change(1, vehicle_centre, BOX2) * 1/25 * 3.6 * 6)
