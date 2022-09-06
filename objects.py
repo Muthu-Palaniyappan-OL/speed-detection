@@ -1,10 +1,11 @@
-import enum
 from sys import maxsize
 from typing import Tuple
 from kalman_filter import KalmanFilter
 import numpy as np
 
-from utility import manhattan_distance, relative_line_position
+def manhattan_distance(x1, y1, x2, y2):
+	"""Calculating manhattan distance."""
+	return abs(x2-x1)+abs(y2-y1)
 
 class OBJ(KalmanFilter):
 	INITIAL_OBJECT_ID = 1
@@ -14,10 +15,11 @@ class OBJ(KalmanFilter):
 		self.time_passed_after = 0
 		self.assigned = False
 		OBJ.INITIAL_OBJECT_ID += 1
+		self.speed = 0
 		
 vehicle_centre : dict[int, OBJ] = dict()
 DISTANCE_RADIOUS = 100
-Max_TLOST_FRAMES = 19
+Max_TLOST_FRAMES = 20
 
 def get_id_speed(x, y, error):
 	min = maxsize
@@ -34,12 +36,18 @@ def get_id_speed(x, y, error):
 		vehicle_centre[K.id] = K
 		K.assigned = True
 		K.time_passed_after = 0
-		return K.id, K.predict_velocity()
+		if K.speed != 0:
+			return K.id, K.speed
+		return K.id,0
 	else:
 		vehicle_centre[id].assigned = True
 		vehicle_centre[id].time_passed_after = 0
 		vehicle_centre[id].update(x, y, error)
-		return vehicle_centre[id].id, vehicle_centre[i].predict_velocity()
+		if vehicle_centre[id].speed != 0:
+			return vehicle_centre[id].id, vehicle_centre[id].speed
+		return vehicle_centre[id].id, 0
+
+
 	
 def clean_object():
 	delete_ids = []
@@ -54,15 +62,7 @@ def clean_object():
 	for i in delete_ids:
 		del vehicle_centre[i]
 
-def frame_difference_change(id :int, vehicle_centre :dict[int, OBJ], box, len = 10):
-	fpos = vehicle_centre[id].forward_position(len)
-	res = 0
-	for i, p in enumerate(fpos):
-		t = relative_line_position(*p, box[:4])*relative_line_position(*p, box[4:])
-		if (t/abs(t) == -1.0):
-			res += 1
-	
-	return res
+
 
 if __name__ == "__main__":
 	BOX2 = np.array([675, 415, 963, 397, 1111, 465, 698, 512])
@@ -120,4 +120,8 @@ if __name__ == "__main__":
 	clean_object()
 	get_id_speed(716, 357, 0.1)
 	clean_object()
-	print(frame_difference_change(1, vehicle_centre, BOX2) * 1/25 * 3.6 * 6)
+	# print(frame_difference_change(1, vehicle_centre, BOX2) * 1/25 * 3.6 * 6)
+	# 963 396
+	# 1109 464
+	# 161px 6/161
+	# 0.03726708074 m/px * 3.6

@@ -8,6 +8,7 @@ Usage:
 import cv2
 import sys
 import numpy as np
+from speed_detection import relative_line_position
 
 def draw_box(frame :np.ndarray, box :list, box_color :tuple):
 	"""Draws box over the "frame" with box dimentions.
@@ -46,14 +47,6 @@ def bb_intersection_over_union(boxA :np.ndarray, boxB :np.ndarray):
 	iou = interArea / float(boxAArea + boxBArea - interArea)
 	return iou
 
-def manhattan_distance(x1, y1, x2, y2):
-	"""Calculating manhattan distance."""
-	return abs(x2-x1)+abs(y2-y1)
-
-def relative_line_position(x1 :int, y1 :int, points_2 :np.ndarray) -> float:
-	m = (points_2[3]-points_2[1])/(points_2[2]-points_2[0])
-	val = (y1-points_2[1] - m*(x1-points_2[0]))
-	return val
 
 def within_box(x1 :int, y1 :int, box) -> bool:
 	"""Returns True if given point is within the box else returns False.
@@ -68,7 +61,7 @@ def within_box(x1 :int, y1 :int, box) -> bool:
 if __name__ == "__main__":
 	"""Use this main funciton to calculate bounding boxes.
 	"""
-	box1 = (583, 407, 556, 506, 185, 463, 313, 396)
+	box1 = (675, 415, 963, 397, 1111, 465, 698, 512)
 	bounding_box = []
 	print("Click in Frame to get it as list: ")
 
@@ -76,7 +69,7 @@ if __name__ == "__main__":
 		if event == cv2.EVENT_LBUTTONDOWN:
 			bounding_box.append(x)
 			bounding_box.append(y)
-			print(relative_line_position(x, y, box1[6:8]+box1[:2]))
+			print(relative_line_position(x, y, box1[:4]))
 
 	cv2.namedWindow('Frame')
 	cv2.setMouseCallback('Frame', mouse_event)		

@@ -3,7 +3,8 @@ Main Package for speed-detection project
 """
 import cv2
 from utility import draw_box, infobox_over_object
-from objects import clean_object, get_id_speed, vehicle_centre, frame_difference_change
+from objects import clean_object, get_id_speed, vehicle_centre
+from speed_detection import check_speed
 import numpy as np
 
 """Main Parameters for the project.
@@ -44,15 +45,26 @@ if __name__ == "__main__":
 				if class_list[classId] in ['car', 'truck']:
 					centre = int(box[0] + box[2]/2), int(box[1] + box[3]/2)
 					i, s = get_id_speed(*centre, 1 - confidence)
-					# s = frame_difference_change(i, vehicle_centre, BOX2) * 1/25 * 3.6 * 6
-					infobox_over_object(frame, box, '{} [{}]'.format(i, s))
+
+					# if i == 9:
+					# 	print(i, (relative_line_position(*centre, BOX2[:4])))
+
+					# vehicle_centre[i].speed = 6/(frame_difference_change(i, vehicle_centre, BOX2)*1/25) * 3.6
+					if i ==9:
+						print(i, s)
+					
+					if vehicle_centre[i].speed != 0:
+						infobox_over_object(frame, box, '{} [{:.2f}]'.format(i, s ))
+					else:
+						infobox_over_object(frame, box, '{}'.format(i))
 		
 		clean_object()
+		check_speed()
 		
 
 		cv2.imshow('Frame', frame)
 		
-		key = cv2.waitKey(1)
+		key = cv2.waitKey(0)
 		if key == ord('q'):
 			break
 
