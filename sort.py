@@ -1,21 +1,3 @@
-"""
-Implementation Of kalman Filter
-
-Based on constant velocity model.
-
-Using:
-	* numpy
-
-Usage: 
-	=========================== 1D Kalman Filter =============================
-		Kf = KalmanFilter_1D()
-		Kf.update(10, 0.1) # 0.1 percentage error and measurment value 10  
-		Kf.update(15, 0.1)
-		Kf.update(20, 0.1)
-		print(Kf.predict())												
-	==========================================================================
-
-"""
 # Dependancies
 import numpy as np
 from typing import Tuple
@@ -34,7 +16,7 @@ class KalmanFilter:
         # Understanding Initial Mat Matrix
         ------------------------------------------------------------------------
         [0, 0],					=> X state matrix 				=> Mat[0, :]
-        [1, dt],				=> A state transition matrix	=> Mat[1:3, :]
+        [1, dt],			a	=> A state transition matrix	=> Mat[1:3, :]
         [0, 1],
         [initial_error, 0],		=> covariance matrix for X		=> Mat[3:5, :]
         [0, initial_error],
@@ -119,75 +101,28 @@ class KalmanFilter:
         return ret
 
 
-if __name__ == "__main__":
-    print('# Simple Prediction Testing ')
-    BOX2 = np.array([675, 415, 963, 397, 1111, 465, 698, 512])
-    KF = KalmanFilter(old_input_x=555, old_input_y=382)
-    # get_id_speed(692, 315, 0.1)
-    # clean_object()
-    # get_id_speed(692, 315, 0.1)
-    # clean_object()
-    # get_id_speed(691, 316, 0.1)
-    # clean_object()
-    # get_id_speed(694, 319, 0.1)
-    # clean_object()
-    # get_id_speed(701, 334, 0.1)
-    # clean_object()
-    # get_id_speed(706, 341, 0.1)
-    # clean_object()
-    # get_id_speed(708, 344, 0.1)
-    # clean_object()
-    # get_id_speed(708, 345, 0.1)
-    # clean_object()
-    # get_id_speed(709, 348, 0.1)
-    # clean_object()
-    # get_id_speed(710, 350, 0.1)
-    # clean_object()
-    # get_id_speed(712, 353, 0.1)
-    # clean_object()
-    # get_id_speed(713, 354, 0.1)
-    # clean_object()
-    # get_id_speed(716, 357, 0.1)
-    # clean_object()
-    # get_id_speed(692, 315, 0.1)
-    # clean_object()
-    # get_id_speed(692, 315, 0.1)
-    # clean_object()
-    # get_id_speed(692, 315, 0.1)
-    # clean_object()
-    # get_id_speed(691, 316, 0.1)
-    # clean_object()
-    # get_id_speed(694, 319, 0.1)
-    # clean_object()
-    # get_id_speed(701, 334, 0.1)
-    # clean_object()
-    # get_id_speed(706, 341, 0.1)
-    # clean_object()
-    # get_id_speed(708, 344, 0.1)
-    # clean_object()
-    # get_id_speed(708, 345, 0.1)
-    # clean_object()
-    # get_id_speed(709, 348, 0.1)
-    # clean_object()
-    # get_id_speed(710, 350, 0.1)
-    # clean_object()
-    # get_id_speed(712, 353, 0.1)
-    # clean_object()
-    # get_id_speed(713, 354, 0.1)
-    # clean_object()
-    # get_id_speed(716, 357, 0.1)
-    # clean_object()
-    # frame_difference_change(1, vehicle_centre, BOX2)
+class OBJ(KalmanFilter):
+    INITIAL_OBJECT_ID = 1
 
-"""
-[[705.  360. ]
- [713.  360.5]
- [721.  361. ]
- [729.  361.5]
- [737.  362. ]
- [745.  362.5]
- [753.  363. ]
- [761.  363.5]
- [769.  364. ]
- [777.  364.5]]
-"""
+    def __init__(self, dt=1, initial_error=1000, old_input_x=0, old_input_y=0):
+        super().__init__(dt, initial_error, old_input_x, old_input_y)
+        self.id = OBJ.INITIAL_OBJECT_ID
+        self.time_passed_after = 0
+        self.assigned = False
+        OBJ.INITIAL_OBJECT_ID += 1
+        self.speed = 0
+
+
+class SORT():
+    pass
+
+
+if __name__ == "__main__":
+    kf = KalmanFilter()
+    kf.update(1, 1, 0.6)
+    kf.update(2, 2, 0.6)
+    kf.update(10, 10, 10000)
+    kf.update(4, 4, 0.6)
+    kf.update(5, 5, 0.6)
+    print(kf.predict_distance())
+    pass
