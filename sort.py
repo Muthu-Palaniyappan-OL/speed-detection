@@ -1,3 +1,10 @@
+"""
+# Simple Online Realtime Tracking
+
+Usage:
+    s = sort.SORT()
+    s.update(model_predictions)
+"""
 import numpy as np
 from typing import Tuple
 
@@ -64,9 +71,9 @@ class Kalaman_Filter:
         self.Px = self.__estimate_covariance(self.Px)
         self.Py = self.__estimate_covariance(self.Py)
         Kx = self.__calculate_kalman_gain(
-            self.Px, np.eye(2)*error*(x1-self.old_x))
+            self.Px, np.eye(2)*error)
         Ky = self.__calculate_kalman_gain(
-            self.Py, np.eye(2)*error*(y1-self.old_y))
+            self.Py, np.eye(2)*error)
         Kx = self.__diagonal_filter(Kx)
         Ky = self.__diagonal_filter(Ky)
         self.Xx = self.__postirior_estimate(
@@ -133,28 +140,27 @@ class SORT:
             (model_predictions.shape[0], tracker_predictions.shape[0]))
         for i in range(model_predictions.shape[0]):
             for j in range(tracker_predictions.shape[0]):
-                x1 = model_predictions[i][0]
-                y1 = model_predictions[i][1]
-                w = model_predictions[i][2]
-                h = model_predictions[i][3]
-                x2 = tracker_predictions[j][0]
-                y2 = tracker_predictions[j][1]
-                box1 = [x1, y1, x1+w, y1+h]
-                box2 = [x2, y2, x2+w, y2+h]
+                cx1 = model_predictions[i][0]
+                cy1 = model_predictions[i][1]
+                cw = model_predictions[i][2]
+                ch = model_predictions[i][3]
+                cx2 = tracker_predictions[j][0]
+                cy2 = tracker_predictions[j][1]
+                box1 = [cx1 - cw, cy1 - ch, cx1 + cw, cy1 + ch]
+                box2 = [cx2 - cw, cy2 - ch, cx2 + cw, cy2 + ch]
                 ret[i][j] = self.__intersection_over_union(box1, box2)
         return ret
 
     def update(self, model_predictions: np.ndarray) -> np.ndarray:
         """
-        Takes in [[x, y, l, b, error_percentage]]
-        Results [[x, y, l, b, id, xp, yp]]
+        Input: model_predictions = [[x_center, y_center, mid_width, mid_height, error_percent], ...]
+        Ouput: [[x_center, y_center, mid_width, mid_height, error_percent, id_assigned, predic_x_centre, predic_y_centre, iou_percet], ...]
         """
         result = np.concatenate((model_predictions.copy(), np.full(
-            (model_predictions.shape[0], 3), -1)), axis=1)
+            (model_predictions.shape[0], 4), -1)), axis=1)
         tracker_predictions = self.__generate_tracker_predictions()
         iou_bulk = self.__iou_bulk(model_predictions, tracker_predictions)
         tracked_ids = []
-        # print(iou_bulk)
 
         # IOU Matching
         if iou_bulk != []:
@@ -164,11 +170,12 @@ class SORT:
                     result[i][5] = tracker_predictions[max_iou][2]
                     result[i][6] = tracker_predictions[max_iou][0]
                     result[i][7] = tracker_predictions[max_iou][1]
+                    result[i][8] = iou_bulk[i][max_iou]
                     tracked_ids.append(result[i][5])
                     for v in self.tracker:
                         if v.id == result[i][5]:
                             v.update(
-                                model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4])/100)
+                                model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4]))
                 else:
                     result[i][5] = -1
 
