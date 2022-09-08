@@ -27,17 +27,17 @@ class Kalaman_Filter:
 
     # Static Variable
     dt: int = 1
-    A: np.ndarray = np.array([[1, dt], [0, 1]])
+    A: np.ndarray = np.array([[1, dt], [0, 1]]) # Constant Linear Velocity Model
 
     # Constructor
     def __init__(self, dt=1, initial_error=1000, old_x=0, old_y=0) -> None:
         self.dt = dt
         self.old_x = old_x
         self.old_y = old_y
-        self.Xx = np.array([old_x, 0], dtype=np.float16)
-        self.Xy = np.array([old_y, 0], dtype=np.float16)
-        self.Px = np.eye(2, dtype=np.float16)*initial_error
-        self.Py = np.eye(2, dtype=np.float16)*initial_error
+        self.Xx = np.array([old_x, 0], dtype=np.float16) # State Variable for x_cord
+        self.Xy = np.array([old_y, 0], dtype=np.float16) # State Variable for y_cord
+        self.Px = np.eye(2, dtype=np.float16)*initial_error # Initial covariance matrix of x_cord
+        self.Py = np.eye(2, dtype=np.float16)*initial_error # Initial covariance matrix of y_cord
 
     def __priori_estimate(self, X: np.ndarray) -> np.ndarray:
         return self.A.dot(X.transpose())
@@ -55,38 +55,84 @@ class Kalaman_Filter:
         return ((np.eye(2) - K).dot(P))
 
     def predict_position(self) -> Tuple[int, int]:
+        """ 
+        Returns predicted position w.r.t to both x_cord, y_cord
+        """
         return round(self.__priori_estimate(self.Xx)[0]), round(self.__priori_estimate(self.Xy)[0])
 
     def predict_speed(self) -> Tuple[int, int]:
+        """ 
+        Returns predicted speed w.r.t to both x_cord, y_cord
+        """
         return self.__priori_estimate(self.Xx)[1], self.__priori_estimate(self.Xy)[1]
 
     def __diagonal_filter(self, K: np.ndarray) -> np.ndarray:
+        """ 
+        # Extracts only the diagonal elements of the matrix.
+
+        Input = [[3, 3]
+                [3, 3]]
+        
+        Ouput = [[3, 0]
+                [0, 3]]
+        """
         top_left = np.array([[1, 0], [0, 0]])
         bottom_right = np.array([[0, 0], [0, 1]])
         return top_left.dot(K.dot(top_left)) + bottom_right.dot(K.dot(bottom_right))
 
     def update(self, x1: int, y1: int, error: float) -> None:
+        """ 
+        # Update the kalman filter
+
+        More updates better the kalman filter predicts.
+
+        
+        Input: (X_cord, Y_cord, error)
+        
+        Error value is betweeen 0 and 1
+
+        Output: None
+
+        For more information: https://arxiv.org/pdf/1710.04055.pdf
+        """
+
+        # predicting state
         self.Xx = self.__priori_estimate(self.Xx)
         self.Xy = self.__priori_estimate(self.Xy)
         self.Px = self.__estimate_covariance(self.Px)
         self.Py = self.__estimate_covariance(self.Py)
+        
+        # calculating kalman gain w.r.t both Xx, Xy
         Kx = self.__calculate_kalman_gain(
             self.Px, np.eye(2)*error)
         Ky = self.__calculate_kalman_gain(
             self.Py, np.eye(2)*error)
+        
+        # No any other relation between velocity and position so filtered out.
         Kx = self.__diagonal_filter(Kx)
         Ky = self.__diagonal_filter(Ky)
+
+        # correcting state estimation using Kalman gain
         self.Xx = self.__postirior_estimate(
             np.array([x1, (x1 - self.old_x)]), Kx, self.Xx)
         self.old_x = x1
         self.Xy = self.__postirior_estimate(
             np.array([y1, (y1 - self.old_y)]), Ky, self.Xy)
         self.old_y = y1
+
+        # correcting covariance matrix using Kalman gain
         self.Px = self.__corrected_covariance(self.Px, Kx)
         self.Py = self.__corrected_covariance(self.Py, Ky)
 
 
 class kalmanFilterTracker(Kalaman_Filter):
+    """ 
+    # Object Tracker Class based on kalman filter
+
+    This class keeps not of time_since_update the kalman filter received.
+    If kalman filter didnt recieve any update for a long amount of time the 
+    object gets destroyed.
+    """
     def __init__(self, id, dt=1, initial_error=1000, old_x=0, old_y=0) -> None:
         super().__init__(dt, initial_error, old_x, old_y)
         self.time_since_update = 0
@@ -98,6 +144,13 @@ class kalmanFilterTracker(Kalaman_Filter):
 
 
 class SORT:
+    """
+    # Maintains the objects in the frame
+
+    Tlost_max = Maximum frame it can fford to loose.
+
+    iou_min = minimum iou between predicted and acctual bounding box
+    """
     INITIAL_ID: int = 0
     Tlost_max: int = 3
     iou_min: float = 0.3
@@ -120,10 +173,12 @@ class SORT:
         return predictions
 
     def __generate_id(self) -> int:
+        """ Returns new id for the object """
         self.INITIAL_ID += 1
         return self.INITIAL_ID
 
     def __intersection_over_union(self, boxA, boxB):
+        """ Calculated IOU for each model_predicted and tracker_predicted """
         xA = max(boxA[0], boxB[0])
         yA = max(boxA[1], boxB[1])
         xB = min(boxA[2], boxB[2])
@@ -135,6 +190,7 @@ class SORT:
         return iou
 
     def __iou_bulk(self, model_predictions: np.ndarray, tracker_predictions: np.ndarray):
+        """ Apply Bulk IOU for every combination of model_predicted and tracker_predicted """
         if len(tracker_predictions) == 0:
             return np.zeros((model_predictions.shape[0], tracker_predictions.shape[0]))
 
@@ -142,14 +198,15 @@ class SORT:
             (model_predictions.shape[0], tracker_predictions.shape[0]))
         for i in range(model_predictions.shape[0]):
             for j in range(tracker_predictions.shape[0]):
-                cx1 = model_predictions[i][0]
-                cy1 = model_predictions[i][1]
-                cw = model_predictions[i][2]
-                ch = model_predictions[i][3]
-                cx2 = tracker_predictions[j][0]
-                cy2 = tracker_predictions[j][1]
-                box1 = [cx1 - cw, cy1 - ch, cx1 + cw, cy1 + ch]
-                box2 = [cx2 - cw, cy2 - ch, cx2 + cw, cy2 + ch]
+                x1 = model_predictions[i][0]
+                y1 = model_predictions[i][1]
+                w = model_predictions[i][2]
+                h = model_predictions[i][3]
+                x2 = tracker_predictions[j][0]
+                y2 = tracker_predictions[j][1]
+                box1 = [x1, y1, x1+w, y1+h]
+                box2 = [x2, y2, x2+w, y2+h]
+
                 ret[i][j] = self.__intersection_over_union(box1, box2)
         return ret
 
