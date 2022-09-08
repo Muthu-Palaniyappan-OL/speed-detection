@@ -1,128 +1,193 @@
-# Dependancies
 import numpy as np
 from typing import Tuple
-from math import sqrt, pow
 
 
-class KalmanFilter:
-    """Predict Future (X_Cord, Y_Cord) based on input."""
+class Kalaman_Filter:
+    """ kalman Filter
 
-    def __init__(self, dt=1, initial_error=1000, old_input_x=0, old_input_y=0):
-        """
-        dt: is delta time between the periodic readings.
-        initial_error: Inital error 
-        old_input_x, old_input_y: inital input for x, y
+    ### 2D Constant linear velocity model based kalman filter
 
-        # Understanding Initial Mat Matrix
-        ------------------------------------------------------------------------
-        [0, 0],					=> X state matrix 				=> Mat[0, :]
-        [1, dt],			a	=> A state transition matrix	=> Mat[1:3, :]
-        [0, 1],
-        [initial_error, 0],		=> covariance matrix for X		=> Mat[3:5, :]
-        [0, initial_error],
-        [0, 0],					=> Y state matrix				=> Mat[5, :]
-        [initial_error, 0],		=> covariance matrix for Y		=> Mat[6:, :]
-        [0, initial_error]
-        ------------------------------------------------------------------------
-        """
+    Usage:
+
+        kf = Kalaman_Filter(old_x=1, old_y=1)
+        kf.update(3, 3, 0.1)
+        kf.update(4, 4, 0.3)
+        kf.update(7, 7, 0.1)
+        kf.predict_position()
+        kf.predict_speed()
+
+    """
+
+    # Static Variable
+    dt: int = 1
+    A: np.ndarray = np.array([[1, dt], [0, 1]])
+
+    # Constructor
+    def __init__(self, dt=1, initial_error=1000, old_x=0, old_y=0) -> None:
         self.dt = dt
-        self.old_input_x = old_input_x
-        self.old_input_y = old_input_y
-        self.Mat = np.array([
-            [0, 0],
-            [1, dt],
-            [0, 1],
-            [initial_error, 0],
-            [0, initial_error],
-            [0, 0],
-            [initial_error, 0],
-            [0, initial_error]
-        ], dtype=np.float16)
+        self.old_x = old_x
+        self.old_y = old_y
+        self.Xx = np.array([old_x, 0], dtype=np.float16)
+        self.Xy = np.array([old_y, 0], dtype=np.float16)
+        self.Px = np.eye(2, dtype=np.float16)*initial_error
+        self.Py = np.eye(2, dtype=np.float16)*initial_error
 
-    def predict_distance(self) -> Tuple[int, int]:
-        """Predicts Future State With Recorded Readings But it doesnt update itself.
-        Returns: [X_Distance, Y_Distance]
-        """
-        X = int(self.Mat[1:3, :].dot(self.Mat[0, :])[0])
-        Y = int(self.Mat[1:3, :].dot(self.Mat[5, :])[0])
-        return (X, Y)
+    def __priori_estimate(self, X: np.ndarray) -> np.ndarray:
+        return self.A.dot(X.transpose())
 
-    def predict_velocity(self) -> np.float16:
-        """Merge's Both X_Velocity and Y_Velocity together.
+    def __estimate_covariance(self, P: np.ndarray) -> np.ndarray:
+        return self.A.dot(P.dot(self.A.transpose()))
 
-        Returns: [Velocity]
-        """
-        vx, vy = self.predict_2d_velocity()
-        return sqrt(pow(vx, 2) + pow(vy, 2))
+    def __calculate_kalman_gain(self, P: np.ndarray, R: np.ndarray) -> np.ndarray:
+        return np.divide(P, (P+R), where=((P+R) != 0))
 
-    def predict_2d_velocity(self) -> Tuple[np.float16, np.float16]:
-        """Predicts Future State With Recorded Readings But it doesnt update itself.
+    def __postirior_estimate(self, Y: np.ndarray, K: np.ndarray, X: np.ndarray) -> np.ndarray:
+        return (X + K.dot(Y.transpose() - X.transpose()).transpose())
 
-        Returns: [X_Velocity, Y_Velocity]
-        """
-        X = self.Mat[1:3, :].dot(self.Mat[0, :])[1]
-        Y = self.Mat[1:3, :].dot(self.Mat[5, :])[1]
-        return (X, Y)
+    def __corrected_covariance(self, P: np.ndarray, K: np.ndarray) -> np.ndarray:
+        return ((np.eye(2) - K).dot(P))
 
-    def update(self, input_x: int, input_y: int, error: float) -> None:
-        """Updates kalman filter with new data and it doesn't predicts."""
+    def predict_position(self) -> Tuple[int, int]:
+        return round(self.__priori_estimate(self.Xx)[0]), round(self.__priori_estimate(self.Xy)[0])
 
-        self.Mat[0, :] = self.Mat[1:3, :].dot(self.Mat[0, :])
-        self.Mat[5, :] = self.Mat[1:3, :].dot(self.Mat[5, :])
-        self.Mat[3:5, :] = self.Mat[1:3, :].dot(
-            self.Mat[3:5, :].dot(self.Mat[1:3, :]))
-        self.Mat[6:, :] = self.Mat[1:3, :].dot(
-            self.Mat[6:, :].dot(self.Mat[1:3, :]))
-        R = np.eye(2)*error
-        Kx = np.divide(self.Mat[3:5, :], (self.Mat[3:5, :]+R),
-                       where=(self.Mat[3:5, :]+R) != 0)
-        Ky = np.divide(self.Mat[6:, :], (self.Mat[6:, :]+R),
-                       where=(self.Mat[6:, :]+R) != 0)
-        Yx = np.array([[input_x], [(input_x - self.old_input_x)/self.dt]])
-        Yy = np.array([[input_y], [(input_y - self.old_input_y)/self.dt]])
-        self.old_input_x = input_x
-        self.old_input_y = input_y
-        self.Mat[0, :] = self.Mat[0, :] + \
-            Kx.dot(Yx - self.Mat[0, :].reshape(2, 1)).reshape(1, 2)
-        self.Mat[5, :] = self.Mat[5, :] + \
-            Ky.dot(Yy - self.Mat[5, :].reshape(2, 1)).reshape(1, 2)
-        self.Mat[3:5, :] = (np.eye(2) - Kx).dot(self.Mat[3:5, :])
-        self.Mat[6:, :] = (np.eye(2) - Ky).dot(self.Mat[6:, :])
+    def predict_speed(self) -> Tuple[int, int]:
+        return self.__priori_estimate(self.Xx)[1], self.__priori_estimate(self.Xy)[1]
 
-    def forward_position(self, level: int) -> np.ndarray:
-        ret = np.zeros(shape=(level, 2))
-        sx = self.Mat[0, :].copy()
-        sy = self.Mat[5, :].copy()
-        for i in ret:
-            sx = self.Mat[1:3, :].dot(sx)
-            sy = self.Mat[1:3, :].dot(sy)
-            i[0] = sx[0]
-            i[1] = sy[0]
+    def __diagonal_filter(self, K: np.ndarray) -> np.ndarray:
+        top_left = np.array([[1, 0], [0, 0]])
+        bottom_right = np.array([[0, 0], [0, 1]])
+        return top_left.dot(K.dot(top_left)) + bottom_right.dot(K.dot(bottom_right))
+
+    def update(self, x1: int, y1: int, error: float) -> None:
+        self.Xx = self.__priori_estimate(self.Xx)
+        self.Xy = self.__priori_estimate(self.Xy)
+        self.Px = self.__estimate_covariance(self.Px)
+        self.Py = self.__estimate_covariance(self.Py)
+        Kx = self.__calculate_kalman_gain(
+            self.Px, np.eye(2)*error*(x1-self.old_x))
+        Ky = self.__calculate_kalman_gain(
+            self.Py, np.eye(2)*error*(y1-self.old_y))
+        Kx = self.__diagonal_filter(Kx)
+        Ky = self.__diagonal_filter(Ky)
+        self.Xx = self.__postirior_estimate(
+            np.array([x1, (x1 - self.old_x)]), Kx, self.Xx)
+        self.old_x = x1
+        self.Xy = self.__postirior_estimate(
+            np.array([y1, (y1 - self.old_y)]), Ky, self.Xy)
+        self.old_y = y1
+        self.Px = self.__corrected_covariance(self.Px, Kx)
+        self.Py = self.__corrected_covariance(self.Py, Ky)
+
+
+class kalmanFilterTracker(Kalaman_Filter):
+    def __init__(self, id, dt=1, initial_error=1000, old_x=0, old_y=0) -> None:
+        super().__init__(dt, initial_error, old_x, old_y)
+        self.time_since_update = 0
+        self.id: int = id
+
+    def update(self, x1: int, y1: int, error: float):
+        super().update(x1, y1, error)
+        self.time_since_update = 0
+
+
+class SORT:
+    INITIAL_ID: int = 0
+    Tlost_max: int = 3
+    iou_min: float = 0.3
+
+    def __init__(self, Tlost_max=3, iou_min=0.3) -> None:
+        self.Tlost_max = Tlost_max
+        self.iou_min = iou_min
+        self.tracker: list[kalmanFilterTracker] = []
+
+    def __generate_tracker_predictions(self) -> np.ndarray:
+        """ Returns (X_prediction, Y_Prediction, id) """
+        predictions = np.zeros((len(self.tracker), 3))
+        for i, j in enumerate(self.tracker):
+            x, y = j.predict_position()
+            predictions[i][0] = x
+            predictions[i][1] = y
+            predictions[i][2] = j.id
+        return predictions
+
+    def __generate_id(self) -> int:
+        self.INITIAL_ID += 1
+        return self.INITIAL_ID
+
+    def __intersection_over_union(self, boxA, boxB):
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[2], boxB[2])
+        yB = min(boxA[3], boxB[3])
+        interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+        boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+        boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+        iou = interArea / float(boxAArea + boxBArea - interArea)
+        return iou
+
+    def __iou_bulk(self, model_predictions: np.ndarray, tracker_predictions: np.ndarray):
+        if len(tracker_predictions) == 0:
+            return np.zeros((model_predictions.shape[0], tracker_predictions.shape[0]))
+
+        ret = np.zeros(
+            (model_predictions.shape[0], tracker_predictions.shape[0]))
+        for i in range(model_predictions.shape[0]):
+            for j in range(tracker_predictions.shape[0]):
+                x1 = model_predictions[i][0]
+                y1 = model_predictions[i][1]
+                w = model_predictions[i][2]
+                h = model_predictions[i][3]
+                x2 = tracker_predictions[j][0]
+                y2 = tracker_predictions[j][1]
+                box1 = [x1, y1, x1+w, y1+h]
+                box2 = [x2, y2, x2+w, y2+h]
+                ret[i][j] = self.__intersection_over_union(box1, box2)
         return ret
 
+    def update(self, model_predictions: np.ndarray) -> np.ndarray:
+        """
+        Takes in [[x, y, l, b, error_percentage]]
+        Results [[x, y, id, tracker_index]]
+        """
+        result = np.concatenate((model_predictions.copy(), np.full(
+            (model_predictions.shape[0], 1), -1)), axis=1)
+        tracker_predictions = self.__generate_tracker_predictions()
+        iou_bulk = self.__iou_bulk(model_predictions, tracker_predictions)
+        tracked_ids = []
 
-class OBJ(KalmanFilter):
-    INITIAL_OBJECT_ID = 1
+        for i in range(iou_bulk.shape[1]):
+            max_iou = iou_bulk[i].argmax()
+            print('Max Iou: ', i, max_iou,
+                  iou_bulk[i][max_iou], iou_bulk.shape)
+            if iou_bulk[i][max_iou] >= self.iou_min and result[i][5] == -1:
+                result[i][5] = tracker_predictions[max_iou][2]
+                tracked_ids.append(result[i][5])
+                for v in self.tracker:
+                    if v.id == result[i][5]:
+                        v.update(
+                            model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4])/100)
+            else:
+                result[i][5] = -1
 
-    def __init__(self, dt=1, initial_error=1000, old_input_x=0, old_input_y=0):
-        super().__init__(dt, initial_error, old_input_x, old_input_y)
-        self.id = OBJ.INITIAL_OBJECT_ID
-        self.time_passed_after = 0
-        self.assigned = False
-        OBJ.INITIAL_OBJECT_ID += 1
-        self.speed = 0
+        # creating ID's for not matching kalman filter
+        for i in range(len(result)):
+            if result[i][5] == -1:
+                id = self.__generate_id()
+                kf = kalmanFilterTracker(
+                    id, old_x=result[i][0], old_y=result[i][1])
+                result[i][5] = id
+                self.tracker.append(kf)
+                tracked_ids.append(result[i][5])
 
+        # Increase the strike and predict kalman filter, Handling excess tracker_predictions
+        to_be_deleted = []
+        for i, v in enumerate(self.tracker):
+            if v.id not in tracked_ids:
+                v.update(*v.predict_position(), 0.1)
+                if v.time_since_update > self.Tlost_max:
+                    to_be_deleted.append(i)
 
-class SORT():
-    pass
+        for i in to_be_deleted:
+            del self.tracker[i]
 
-
-if __name__ == "__main__":
-    kf = KalmanFilter()
-    kf.update(1, 1, 0.6)
-    kf.update(2, 2, 0.6)
-    kf.update(10, 10, 10000)
-    kf.update(4, 4, 0.6)
-    kf.update(5, 5, 0.6)
-    print(kf.predict_distance())
-    pass
+        return result
