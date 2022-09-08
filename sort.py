@@ -147,27 +147,30 @@ class SORT:
     def update(self, model_predictions: np.ndarray) -> np.ndarray:
         """
         Takes in [[x, y, l, b, error_percentage]]
-        Results [[x, y, id, tracker_index]]
+        Results [[x, y, l, b, id, xp, yp]]
         """
         result = np.concatenate((model_predictions.copy(), np.full(
-            (model_predictions.shape[0], 1), -1)), axis=1)
+            (model_predictions.shape[0], 3), -1)), axis=1)
         tracker_predictions = self.__generate_tracker_predictions()
         iou_bulk = self.__iou_bulk(model_predictions, tracker_predictions)
         tracked_ids = []
+        # print(iou_bulk)
 
-        for i in range(iou_bulk.shape[1]):
-            max_iou = iou_bulk[i].argmax()
-            print('Max Iou: ', i, max_iou,
-                  iou_bulk[i][max_iou], iou_bulk.shape)
-            if iou_bulk[i][max_iou] >= self.iou_min and result[i][5] == -1:
-                result[i][5] = tracker_predictions[max_iou][2]
-                tracked_ids.append(result[i][5])
-                for v in self.tracker:
-                    if v.id == result[i][5]:
-                        v.update(
-                            model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4])/100)
-            else:
-                result[i][5] = -1
+        # IOU Matching
+        if iou_bulk != []:
+            for i in range(iou_bulk.shape[0]):
+                max_iou = iou_bulk[i].argmax()
+                if iou_bulk[i][max_iou] >= self.iou_min and result[i][5] == -1:
+                    result[i][5] = tracker_predictions[max_iou][2]
+                    result[i][6] = tracker_predictions[max_iou][0]
+                    result[i][7] = tracker_predictions[max_iou][1]
+                    tracked_ids.append(result[i][5])
+                    for v in self.tracker:
+                        if v.id == result[i][5]:
+                            v.update(
+                                model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4])/100)
+                else:
+                    result[i][5] = -1
 
         # creating ID's for not matching kalman filter
         for i in range(len(result)):
@@ -176,6 +179,8 @@ class SORT:
                 kf = kalmanFilterTracker(
                     id, old_x=result[i][0], old_y=result[i][1])
                 result[i][5] = id
+                result[i][6] = result[i][0]
+                result[i][7] = result[i][1]
                 self.tracker.append(kf)
                 tracked_ids.append(result[i][5])
 
