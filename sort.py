@@ -105,16 +105,18 @@ class SORT:
     def __init__(self, Tlost_max=3, iou_min=0.3) -> None:
         self.Tlost_max = Tlost_max
         self.iou_min = iou_min
-        self.tracker: list[kalmanFilterTracker] = []
+        self.tracker: dict[int, kalmanFilterTracker] = dict()
 
     def __generate_tracker_predictions(self) -> np.ndarray:
         """ Returns (X_prediction, Y_Prediction, id) """
+        k = 0
         predictions = np.zeros((len(self.tracker), 3))
-        for i, j in enumerate(self.tracker):
-            x, y = j.predict_position()
-            predictions[i][0] = x
-            predictions[i][1] = y
-            predictions[i][2] = j.id
+        for i in self.tracker:
+            x, y = self.tracker[i].predict_position()
+            predictions[k][0] = x
+            predictions[k][1] = y
+            predictions[k][2] = self.tracker[i].id
+            k += 1
         return predictions
 
     def __generate_id(self) -> int:
@@ -172,9 +174,7 @@ class SORT:
                     result[i][7] = tracker_predictions[max_iou][1]
                     result[i][8] = iou_bulk[i][max_iou]
                     tracked_ids.append(result[i][5])
-                    for v in self.tracker:
-                        if v.id == result[i][5]:
-                            v.update(
+                    self.tracker[result[i][5]].update(
                                 model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4]))
                 else:
                     result[i][5] = -1
@@ -188,15 +188,15 @@ class SORT:
                 result[i][5] = id
                 result[i][6] = result[i][0]
                 result[i][7] = result[i][1]
-                self.tracker.append(kf)
+                self.tracker[result[i][5]] = kf
                 tracked_ids.append(result[i][5])
 
         # Increase the strike and predict kalman filter, Handling excess tracker_predictions
         to_be_deleted = []
-        for i, v in enumerate(self.tracker):
-            if v.id not in tracked_ids:
-                v.update(*v.predict_position(), 0.1)
-                if v.time_since_update > self.Tlost_max:
+        for i in self.tracker:
+            if i not in tracked_ids:
+                self.tracker[i].update(*self.tracker[i].predict_position(), 0.1)
+                if self.tracker[i].time_since_update > self.Tlost_max:
                     to_be_deleted.append(i)
 
         for i in to_be_deleted:
