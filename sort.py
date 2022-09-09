@@ -42,6 +42,9 @@ class Kalaman_Filter:
     def __priori_estimate(self, X: np.ndarray) -> np.ndarray:
         return self.A.dot(X.transpose())
 
+    def priori_estimate(self, X: np.ndarray) -> np.ndarray:
+        return self.A.dot(X.transpose())
+
     def __estimate_covariance(self, P: np.ndarray) -> np.ndarray:
         return self.A.dot(P.dot(self.A.transpose()))
 
@@ -133,14 +136,36 @@ class kalmanFilterTracker(Kalaman_Filter):
     If kalman filter didnt recieve any update for a long amount of time the 
     object gets destroyed.
     """
-    def __init__(self, id, dt=1, initial_error=1000, old_x=0, old_y=0) -> None:
+    minimum_updates = 7
+
+    def __init__(self, id, dt=1, initial_error=1000, old_x=0, old_y=0, minimum_updates = 7) -> None:
         super().__init__(dt, initial_error, old_x, old_y)
         self.time_since_update = 0
         self.id: int = id
+        self.real_updates = 0
+        self.minimum_updates = minimum_updates
+        self.speed = 0
 
     def update(self, x1: int, y1: int, error: float):
         super().update(x1, y1, error)
         self.time_since_update = 0
+    
+    def future_predictions(self, len = 20) -> np.ndarray:
+        res = np.zeros(shape=(1, 2))
+        if self.real_updates >= self.minimum_updates:
+            res = np.zeros(shape=(len, 2))
+            i = 1
+            X = self.priori_estimate(self.Xx)
+            Y = self.priori_estimate(self.Xy)
+            res[0][0] = X[0]
+            res[0][1] = Y[0]
+            while(i < len):
+                X = self.priori_estimate(X)
+                Y = self.priori_estimate(Y)
+                res[i][0] = X[0]
+                res[i][1] = Y[0]
+                i += 1
+        return res
 
 
 class SORT:
@@ -213,10 +238,10 @@ class SORT:
     def update(self, model_predictions: np.ndarray) -> np.ndarray:
         """
         Input: model_predictions = [[x_center, y_center, mid_width, mid_height, error_percent], ...]
-        Ouput: [[x_center, y_center, mid_width, mid_height, error_percent, id_assigned, predic_x_centre, predic_y_centre, iou_percet], ...]
+        Ouput: [[x_center, y_center, mid_width, mid_height, error_percent, id_assigned, predic_x_centre, predic_y_centre, iou_percet, speed], ...]
         """
         result = np.concatenate((model_predictions.copy(), np.full(
-            (model_predictions.shape[0], 4), -1)), axis=1)
+            (model_predictions.shape[0], 5), -1)), axis=1)
         tracker_predictions = self.__generate_tracker_predictions()
         iou_bulk = self.__iou_bulk(model_predictions, tracker_predictions)
         tracked_ids = []
@@ -230,7 +255,9 @@ class SORT:
                     result[i][6] = tracker_predictions[max_iou][0]
                     result[i][7] = tracker_predictions[max_iou][1]
                     result[i][8] = iou_bulk[i][max_iou]
+                    result[i][9] = self.tracker[result[i][5]].speed
                     tracked_ids.append(result[i][5])
+                    self.tracker[result[i][5]].real_updates += 1
                     self.tracker[result[i][5]].update(
                                 model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4]))
                 else:
@@ -245,6 +272,8 @@ class SORT:
                 result[i][5] = id
                 result[i][6] = result[i][0]
                 result[i][7] = result[i][1]
+                result[i][8] = 0
+                result[i][9] = 0
                 self.tracker[result[i][5]] = kf
                 tracked_ids.append(result[i][5])
 
