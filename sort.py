@@ -150,7 +150,7 @@ class kalmanFilterTracker(Kalaman_Filter):
         super().update(x1, y1, error)
         self.time_since_update = 0
     
-    def future_predictions(self, len = 50) -> np.ndarray:
+    def future_predictions(self, len = 40) -> np.ndarray:
         res = np.zeros(shape=(1, 2))
         if self.real_updates >= self.minimum_updates:
             res = np.zeros(shape=(len, 2))
