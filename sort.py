@@ -150,20 +150,20 @@ class kalmanFilterTracker(Kalaman_Filter):
         super().update(x1, y1, error)
         self.time_since_update = 0
     
-    def future_predictions(self, len = 20) -> np.ndarray:
+    def future_predictions(self, len = 50) -> np.ndarray:
         res = np.zeros(shape=(1, 2))
         if self.real_updates >= self.minimum_updates:
             res = np.zeros(shape=(len, 2))
             i = 1
             X = self.priori_estimate(self.Xx)
             Y = self.priori_estimate(self.Xy)
-            res[0][0] = X[0]
-            res[0][1] = Y[0]
+            res[0][0] = int(X[0])
+            res[0][1] = int(Y[0])
             while(i < len):
                 X = self.priori_estimate(X)
                 Y = self.priori_estimate(Y)
-                res[i][0] = X[0]
-                res[i][1] = Y[0]
+                res[i][0] = int(X[0])
+                res[i][1] = int(Y[0])
                 i += 1
         return res
 

@@ -11,7 +11,7 @@ import sys
 import numpy as np
 
 if __name__ == "__main__":
-    initial_box = np.array([[650, 391], [1003, 388], [1121, 452], [662, 478]], dtype=int).reshape(1, 8)[0]
+    initial_box = np.array([[405, 327], [610, 338], [591, 437], [278, 379]], dtype=int).reshape(1, 8)[0]
     # initial_box = np.array([647, 349, 903, 343, 1005, 385, 650, 392], dtype=int)
     bounding_box = np.array([], dtype=int)
     print("Click in Frame to get it as list: ")
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     def mouse_event(event, x, y, flag, params):
         if event == cv2.EVENT_LBUTTONDOWN:
             global bounding_box
-            bounding_box = np.concatenate((bounding_box[0], np.array([x, y])), axis=0)
+            bounding_box = np.concatenate((bounding_box, np.array([x, y])), axis=0)
 
     cv2.namedWindow('Frame')
     cv2.setMouseCallback('Frame', mouse_event)        
