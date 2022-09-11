@@ -237,7 +237,7 @@ class SORT:
 
     def update(self, model_predictions: np.ndarray) -> np.ndarray:
         """
-        Input: model_predictions = [[x_center, y_center, mid_width, mid_height, error_percent], ...]
+        Input: model_predictions = [[x_center, y_center, mid_width, mid_height, confidence], ...]
         Ouput: [[x_center, y_center, mid_width, mid_height, error_percent, id_assigned, predic_x_centre, predic_y_centre, iou_percet, speed], ...]
         """
         result = np.concatenate((model_predictions.copy(), np.full(
