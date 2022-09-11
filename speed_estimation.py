@@ -62,6 +62,7 @@ def estimate_speed(curr_x :int, curr_y :int, future_prediction :np.ndarray) -> f
     for i, box in enumerate(boxes):
         if cv2.pointPolygonTest(box, (curr_x, curr_y), False) == 1:
             current_box = i
+            break
 
     # For each future predictions, the box area where the point is pointed
     prediction_judgement_arr = np.full((future_prediction.shape[0],1), -1)
