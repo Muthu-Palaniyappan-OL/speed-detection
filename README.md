@@ -1,26 +1,33 @@
-# speed-detection
+SPEED DETECTION USING COMPUTER VISION
+---------------------
 
-## Table Of Contents
-- [Important Files To Download](#Important-Files-To-Download)
+ * Introduction
+ * Requirements
+ * Installation
+ * Devolopers
 
----
 
-## Important Files To Download
+INTRODUCTION
+------------
 
-### Linux
-```sh
-https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov7-tiny.cfg
-wget https://github.com/AlexeyAB/darknet/releases/download/yolov4/yolov7-tiny.weights
-wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names
-```
+This project enables to easy estimation of speed of vehicle using computer vision.
 
-### Windows
-```sh
-https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov7-tiny.cfg -o yolov7-tiny.cfg
-wget https://github.com/AlexeyAB/darknet/releases/download/yolov4/yolov7-tiny.weights -o yolov7-tiny.weights
-wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names -o coco.names
-```
 
-Download https://www.youtube.com/watch?v=wqctLW0Hb_0\n Youtube Video and save it as videoplayback.mp4 in same folder.
+REQUIREMENTS
+------------
 
----
+- numpy (1.23.2)
+- opencv-python (4.6.0.66)
+
+
+INSTALLATION
+------------
+
+Start runnning commmands in main.ipynb.
+
+
+DEVOLOPERS
+-----------
+
+ * Muthu Palaniyappan OL
+ * Edumba Vannia Raja T
