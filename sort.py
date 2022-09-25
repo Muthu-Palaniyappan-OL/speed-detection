@@ -260,8 +260,6 @@ class SORT:
                     self.tracker[result[i][5]].real_updates += 1
                     self.tracker[result[i][5]].update(
                                 model_predictions[i][0], model_predictions[i][1], (1 - model_predictions[i][4]))
-                else:
-                    result[i][5] = -1
 
         # creating ID's for not matching kalman filter
         for i in range(len(result)):
